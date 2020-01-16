@@ -1,2 +1,2 @@
 #!/bin/bash
-ruby adc16_test/src/bin/adc16_init.rb --demux 1 192.168.1.13 $1
+ruby adc16_test/src/bin/adc16_init.rb --demux 2 192.168.1.13 mbf_64beams.bof.gz
