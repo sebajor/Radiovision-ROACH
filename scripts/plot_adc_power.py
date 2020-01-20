@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Script to plot the total power at each ADC, animated.
 
 # imports
@@ -29,16 +30,16 @@ def main():
 
     # initial setting of registers
     print("Setting and resetting registers...")
-    roach.write_int(args.acc_reg, args.acclen)
-    roach.write_int(args.count_reg, 1)
-    roach.write_int(args.count_reg, 0)
+    roach.write_int(acc_len_reg, acc_len)
+    roach.write_int(cnt_rst_reg, 1)
+    roach.write_int(cnt_rst_reg, 0)
     print("done")
 
     # animation definition
     def animate(_):
         powdata = get_powdata(roach, pow_regs)
         for rect, pow in zip(rects, powdata):
-            rect.set.height(pow)
+            rect.set_height(pow)
         return rects
 
     ani = FuncAnimation(fig, animate, blit=True)
@@ -48,8 +49,9 @@ def create_figure(regs):
     """
     Create figure with the proper axes for plotting.
     """
-    fig, axis = plt.subplot(1, 1)
-    bars = axis.bar(regs, len(regs)*[0], align='center', width=1)
+    fig, axis = plt.subplots(1, 1)
+    fig.set_tight_layout(True)
+    rects = axis.bar(regs, len(regs)*[0], align='center', width=1)
 
     axis.set_ylim((5, -80)) # Harcoded 8-bit ADC
     axis.set_ylabel('Full Bandwidth Power [dBFS]')

@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Script to plot spectra of each ADC, animated.
 
 # imports
@@ -13,8 +14,8 @@ roach_ip = "192.168.1.13"
 bandwidth       = 140
 acc_len_reg     = "cal_acc_len"
 cnt_rst_reg     = "cal_cnt_rst"
-bram_addr_width = 8  # bits
-bram_word_width = 64 # bits
+bram_addr_width = 8   # bits
+bram_word_width = 128 # bits
 bram_data_type  = '>u8'
 specbrams = ["cal_probe0_xpow_pow0", "cal_probe0_xpow_pow1",
              "cal_probe1_xpow_pow0", "cal_probe1_xpow_pow1",
@@ -49,8 +50,8 @@ def main():
         # get spectral data
         specdata_list = get_specdata(roach, specbrams, 
             bram_addr_width, bram_word_width, bram_data_type)
-        for specdata in specdata_list:
-            specdata = cd.scale_and_dBFS_specdata(specdata, acclen, dBFS)
+        for line, specdata in zip(lines, specdata_list):
+            specdata = cd.scale_and_dBFS_specdata(specdata, acc_len, dBFS)
             line.set_data(freqs, specdata)
         return lines
 
