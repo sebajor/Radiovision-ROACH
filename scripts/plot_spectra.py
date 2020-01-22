@@ -45,6 +45,11 @@ def main():
     roach.write_int(cnt_rst_reg, 0)
     print("done")
 
+    # writing unitary constants into the calibration phase bank
+    for i in range(16):
+        write_phasor_reg(roach, 1+0j, [i], ['cal_phase_re', 'cal_phase_im'], 
+            ['cal_phase_addr'], 'cal_phase_we', 32, 27)
+
     # animation definition
     def animate(_):
         # get spectral data
@@ -99,6 +104,47 @@ def get_specdata(roach, specbrams, awidth, dwidth, dtype):
         specdata_list += specdata
 
     return specdata_list
+
+def write_phasor_reg(roach, phasor, addrs, phasor_regs, addr_regs, we_reg, nbits, binpt):
+    """
+    Writes a phasor (complex) constant into a register from a register bank
+    in the FPGA. The method to write the phasor is:
+
+        1. Write the complex value into software registers, one for the real 
+            and other for the imaginary part.
+        2. Write the appropate value(s) into the address register(s). 
+            This/these value(s) select the register in the register bank. 
+            In some cases it also select the appropate bank if you have more 
+            than one register bank.
+        3. Create a positive edge (0->1) in  the we (write enable register). 
+            This register is reseted to 0 before anything else in order to 
+            avoid tampering with the rest of the bank.
+
+    :param roach: FpgaClinet object for communication.
+    :param phasor: complex constant to write in the register bank.
+    :param addrs: list of addresses to set in the address registers to 
+        properly select the register in the register bank. The number of 
+        addresses must coincide with the number of address registers.
+    :param phasor_regs: list of two registers for the real and imaginary part 
+        of the phasor constant. E.g.: ['real_reg', 'imag_reg'].
+    :param addr_regs: list of registers for the addresses in the bank.
+    :param we_reg: write enable register for the bank.
+    :param nbits: number of bits of the fixed point representation in the model.
+    :param binpt: binary point for the fixed point representation in the model.
+    """
+    # 1. write phasor registers
+    phasor_re = cd.float2fixed(nbits, binpt, np.real([phasor]))
+    phasor_im = cd.float2fixed(nbits, binpt, np.imag([phasor]))
+    roach.write_int('phasor_regs'][0], phasor_re)
+    roach.write_int('phasor_regs'][1], phasor_im)
+
+    # 2. write address registers
+    for addr_reg, addr in zip(addr_regs, addrs):
+        roach.write_int(addr_reg, addr)
+            
+    # 3. posedge in we register
+    roach.write_int(we_reg, 1)
+    roach.write_int(we_reg, 0)
 
 if __name__ == '__main__':
     main()
