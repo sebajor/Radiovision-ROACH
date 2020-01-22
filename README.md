@@ -16,3 +16,13 @@ This is the ruby package written by David MacMahon to initialize the ADC16x250-8
     - `sudo apt install pgplot5`
     - `sudo gem install pgplot`
     - `sudo gem install --source http://w.astro.berkeley.edu/~davidm/gems pgplotter`
+
+## Roadmap
+- [x] Implement basic scripts (snapshots, power, spectra)
+- [ ] Implement realtime colormap
+- [ ] Implement camera feed
+- [ ] Implement dummy beamformer
+- [ ] Integrate colormap and camera into radiovision
+- [ ] Implement peak search
+- [ ] Integrate peak search into radiovision
+- [ ] Test with new frontend
