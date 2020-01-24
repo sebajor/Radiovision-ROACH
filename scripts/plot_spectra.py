@@ -46,9 +46,11 @@ def main():
     print("done")
 
     # writing unitary constants into the calibration phase bank
+    print("Setting and phasors in register bank...")
     for i in range(16):
         write_phasor_reg(roach, 1+0j, [i], ['cal_phase_re', 'cal_phase_im'], 
-            ['cal_phase_addr'], 'cal_phase_we', 32, 27)
+            ['cal_phase_addr'], 'cal_phase_we', 32, 17)
+    print("done")
 
     # animation definition
     def animate(_):
@@ -135,10 +137,10 @@ def write_phasor_reg(roach, phasor, addrs, phasor_regs, addr_regs, we_reg, nbits
     :param binpt: binary point for the fixed point representation in the model.
     """
     # 1. write phasor registers
-    phasor_re = cd.float2fixed(nbits, binpt, np.real([phasor]))
-    phasor_im = cd.float2fixed(nbits, binpt, np.imag([phasor]))
-    roach.write_int('phasor_regs'][0], phasor_re)
-    roach.write_int('phasor_regs'][1], phasor_im)
+    phasor_re = cd.float2fixed(np.real([phasor]), nbits, binpt)
+    phasor_im = cd.float2fixed(np.imag([phasor]), nbits, binpt)
+    roach.write_int(phasor_regs[0], phasor_re)
+    roach.write_int(phasor_regs[1], phasor_im)
 
     # 2. write address registers
     for addr_reg, addr in zip(addr_regs, addrs):
