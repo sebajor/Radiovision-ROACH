@@ -29,11 +29,11 @@ acc_len = 2**16
 nbrams    = len(specbrams)
 nchannels = 2**bram_addr_width
 freqs     = np.linspace(0, bandwidth, nchannels, endpoint=False)
-dBFS      = 6.02*8 + 1.76 + 10*np.log10(nchannels) # Hard-coded 8-bits ADC
+dBFS      = 6.02*8 + 1.76 + 10*np.log10(nchannels/2) # Hard-coded 8-bits ADC
 
 def main():
     # initialize roach
-    roach = cd.initialize_roach(roach_ip, boffile=None, rver=2)
+    roach = cd.initialize_roach(roach_ip, boffile=None)
 
     # create figure
     fig, lines = create_figure(16, bandwidth, dBFS)
@@ -53,7 +53,7 @@ def main():
     # animation definition
     def animate(_):
         # get spectral data
-        specdata_list = get_specdata(roach, specbrams, 
+        specdata_list = get_specdata(roach, specbrams, 2, 
             bram_addr_width, bram_word_width, bram_data_type)
         for line, specdata in zip(lines, specdata_list):
             specdata = cd.scale_and_dBFS_specdata(specdata, acc_len, dBFS)
@@ -74,7 +74,7 @@ def create_figure(nspecs, bandwidth, dBFS):
 
     lines = []
     adcs = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4',
-            'a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']
+            'c1', 'c2', 'c3', 'c4', 'd1', 'd2', 'd3', 'd4']
     for adc, ax in zip(adcs, axes.flatten()):
         ax.set_xlim(0, bandwidth)
         ax.set_ylim(-dBFS-2, 0)
@@ -88,19 +88,21 @@ def create_figure(nspecs, bandwidth, dBFS):
 
     return fig, lines
 
-def get_specdata(roach, specbrams, awidth, dwidth, dtype):
+def get_specdata(roach, specbrams, dfactor, awidth, dwidth, dtype):
     """
     Get spectral data from mbf model. Notice that the data from different
     spectrum is interleaved into the same bram, so it must be deinterleaved.
     :param roach: FpgaClient object to get the data.
     :param specbrams: list of brams where to get the data.
+    :param dfactor: deinterleave factor.
     :param awidth: brams address width.
     :param dwidth: brams data width.
     :param dtype: bram data type.
     """
     specdata_list = []
     for bram in specbrams:
-        specdata = cd.read_deinterleave_data(roach, bram, 2, awidth, dwidth, dtype)
+        specdata = cd.read_deinterleave_data(roach, bram, dfactor, awidth, 
+            dwidth, dtype)
         specdata_list += specdata
 
     return specdata_list

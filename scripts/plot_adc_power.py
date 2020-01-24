@@ -23,7 +23,7 @@ acc_len = 2**16
 
 def main():
     # initialize roach communication
-    roach = cd.initialize_roach(roach_ip, boffile=None, rver=2)
+    roach = cd.initialize_roach(roach_ip, boffile=None)
     
     # create figure
     fig, rects = create_figure(pow_regs)
