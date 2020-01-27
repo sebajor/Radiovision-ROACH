@@ -9,7 +9,8 @@ class Beamformer():
     """
     Represents a multi-beamformer implemented in the ROACH2. Controls the
     beams position, reads the beams data, and make spectra and colormap plots
-    of the data.
+    of the data. This script was implemented to be used with model 
+    mbf_64beams.slx.
     """
     def __init__(self):
         # communication parameters
@@ -47,7 +48,8 @@ class Beamformer():
         self.bf_acclen_reg = "bf_acc_len"
         self.bf_cntrst_reg = "bf_cnt_rst"
         self.bf_phase_regs = ['bf_phase_re', 'bf_phase_im']
-        self.bf_addr_regs  = ['bf_phase_addr']
+        self.bf_addr_regs  = ['bf_phase_addr_x', 'bf_phase_addr_y', 
+                              'bf_phase_addr_t', 'bf_phase_addr_sub']
         self.bf_we_reg     = 'bf_phase_we'
         self.bf_nbits      = 18
         self.bf_binpt      = 17
@@ -133,7 +135,6 @@ class Beamformer():
             write_phasor_reg(self.roach, cal_ratio, [addr], self.cal_phase_regs, 
                 self.cal_addr_regs, self.cal_we_reg, 32, 27)
 
-
         # compute new ratios
         print("Calibrated imbalances:")
         cal_ratios_new = compute_ratios(specdata, xabdata, chnl)
@@ -143,6 +144,58 @@ class Beamformer():
 
         print("Close plots to finish.")
         plt.show()
+
+    def steer_beam(self, addrs_list, az, el, chnl):
+        """
+        Given a phase array antenna that outputs into the ROACH,
+        set the appropiate phasor constants so that the array points
+        to a given direction (in azimuth and elevation angles). The exact 
+        phasors are computed using the ang2phasors() function, the 
+        self.elpos (element positions) parameter of the beamformer and the 
+        frequency of the expected signal (downconverted).
+        :param addrs_list: list of addresses from the phase bank where to set 
+            the constants.
+        :param az: azimuth angle to point the beam in degrees.
+        :param el: elevation angle to point the beam in degrees.
+        :param chnl: frequency channel of the expected input signal.
+        """
+        freq = self.freqs[chnl] # input frequency
+        phasor_list = angs2phasors(self.elpos, freq, el, az)
+        
+        for phasor, addrs in zip(phasor_list, addrs_list):
+            write_phasor_reg(self.roach, phasor, addrs, self.bf_phase_regs, 
+                self.bf_addr_regs, self.we_we_reg, 18, 17)
+
+    def steer_beams(self, az_list, el_list, chnl):
+        """
+        Steer all beams to appropriate locations in a grid for the 64 beams 
+        beamformer to create image.
+        :param az_list: list of azimuth angles for the beams. Must be length 8.
+        :param az_list: list of elevation angles for the beams. Must be length 8.
+        :param chnl: frequency channel to use when computing the positions.
+        """
+        angle_pairs = itertools.product(el_list, az_list)
+
+        print("Steering the beams for every beamformer...")
+        for i in range(4):
+            for j in range(4):
+                for t in range(4):
+                    addrs = [[i,j,t,input] for port in range(self.ninputs)]
+                    el, az = angles_comb.next()
+                    self.steer_beam(addrs, az, el, chnl)
+        print("done")
+
+    def get_bf_data():
+        """
+        Get the data of all of the 64 beams of the beamformer.
+        :return: spectral data for each beam of the beamformer.
+        """
+
+    def plot_colormap(self, chnl):
+        """
+        Plot a colormap of the beams power on a given channel.
+        :param chnl: channel to plot.
+        """
 
 #################################
 ### calibrate input functions ###
@@ -240,7 +293,58 @@ def compute_ratios(specdata, xabdata, chnl):
 
     return np.array(cal_ratios)
 
+##########################
+### colormap functions ###
+##########################
+def angs2phasors(elpos_w, freq, theta, phi): 
+    """
+    Computes the phasor constants for every element of
+    a 2D phase array antenna in order to make it point to the
+    direction given by the theta (elevation) and phi (azimuth) 
+    angles. For this the relative position of all the element of 
+    the array is needed as well as the frequency of the input signal. 
+    :param elpos_w: relative position of the elements of the array in 
+        wavelength units.
+    :param freq: operation frequency of the array in MHz.
+    :param theta: elevation angle to point the beam in degrees.
+    :param phi: azimuth angle to point the beam in degrees.
+    :return: phase constants for every element in the array to
+        set in order to properly point the array to the desired direction.
+    """
+    c = 3e8 # speed of light
+    wavelength = c / (freq*1e6)
+
+    # get array element positions in meters
+    elpos_m = wavelength * np.array(elpos_w)
+
+    # convert angles into standard ISO shperical coordinates
+    # (instead of (0,0) being the array perpendicular direction)
+    theta = 90 - theta 
+    phi = 90 - phi
+
+    # convert angles into radians
+    theta = np.radians(theta)
+    phi = np.radians(phi)
+  
+    # direction of arrival
+    a = np.array([-np.sin(theta) * np.cos(phi), -np.sin(theta) * np.sin(phi), -np.cos(theta)])
+    k = 2 * np.pi / wavelength * a  # wave-number vector
+
+    # Calculate array manifold vector
+    v = np.exp(-1j * np.dot(elpos_m, k))
+
+    return list(np.conj(v).flatten())
+
+
 if __name__ == '__main__':
+    chnl = 20 # chnl:20 => 10.9375MHz at BW=140MHz
     bf = Beamformer()
     bf.initialize(2**16, 2**16)
-    bf.calibrate_inputs(20) # chnl:20 => 10.9375MHz at BW=140MHz
+    #bf.calibrate_inputs(chnl)
+
+    # beams position for testing the colormap
+    az = range(-56, 56+1, 16)
+    el = range(-56, 56+1, 16)
+    bf.steer_beams(az, el, chnl)
+    
+    bf.plot_colormap(chnl)
