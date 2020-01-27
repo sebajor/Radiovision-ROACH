@@ -3,7 +3,7 @@ import calandigital as cd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from ..plot_spectra import get_specdata, write_phasor_reg
+from plot_spectra import get_specdata, write_phasor_reg
 
 class Beamformer():
     """
@@ -13,7 +13,7 @@ class Beamformer():
     """
     def __init__(self):
         # communication parameters
-        roach_ip = "192.168.1.13"
+        self.roach_ip = "192.168.1.13"
 
         # model parameters
         self.bandwidth = 140
@@ -29,7 +29,7 @@ class Beamformer():
         self.cal_awidth     = 8   # bits
         self.cal_dwidth     = 128 # bits
         self.cal_pow_dtype  = '>u8'
-        self.cal_xab_dtype  = '>u8'
+        self.cal_xab_dtype  = '>i8'
         self.cal_pow_brams  = ["cal_probe0_xpow_pow0", "cal_probe0_xpow_pow1",
                                "cal_probe1_xpow_pow0", "cal_probe1_xpow_pow1",
                                "cal_probe2_xpow_pow0", "cal_probe2_xpow_pow1",
@@ -74,10 +74,9 @@ class Beamformer():
                       [(0.75, 0, -0.75), (0.25, 0, -0.75), (-0.25, 0, -0.75), (-0,75, 0, -0.75)]]
 
         # derivative parameters
-        self.nbrams    = len(specbrams)
-        self.nchannels = 2**bram_addr_width
-        self.freqs     = np.linspace(0, bandwidth, nchannels, endpoint=False)
-        self.dBFS      = 6.02*8 + 1.76 + 10*np.log10(nchannels/2) # Hard-coded 8-bits ADC
+        self.nchannels = 2**self.cal_awidth
+        self.freqs     = np.linspace(0, self.bandwidth, self.nchannels, endpoint=False)
+        self.dBFS      = 6.02*8 + 1.76 + 10*np.log10(self.nchannels/2) # Hard-coded 8-bits ADC
     
     def initialize(self, cal_acclen, bf_acclen):
         """
@@ -121,7 +120,7 @@ class Beamformer():
             self.cal_awidth, self.cal_dwidth, self.cal_xab_dtype)
 
         # compute ratios
-        print "Computed imbalances:"
+        print("Computed imbalances:")
         cal_ratios = compute_ratios(sepcdata, xabdata, chnl)
 
         # plot calibration data
@@ -134,7 +133,7 @@ class Beamformer():
 
 
         # compute new ratios
-        print "Calibrated imbalances:"
+        print("Calibrated imbalances:")
         cal_ratios_new = compute_ratios(sepcdata, xabdata, chnl)
 
         # plot calibrated data
@@ -207,13 +206,14 @@ def compute_ratios(specdata, xabdata, chnl):
 
     # print computed ratios
     for i, cal_ratio in enumerate(cal_ratios):
-        print "Port " + str(i).zfill(2) + \
+        print("Port " + str(i).zfill(2) + \
             ": mag: " + "%0.4f" % np.abs(cal_ratio) + \
-            ", ang: " + "%0.4f" % np.angle(cal_ratio, deg=True) + "[deg]"
+            ", ang: " + "%0.4f" % np.angle(cal_ratio, deg=True) + "[deg]")
     print ""
 
     return np.array(cal_ratios)
 
-
 if __name__ == '__main__':
-    Beamformer().plot_specs()
+    bf = Beamformer()
+    bf.initialize(2**16, 2**16)
+    bf.calibrate_inputs(20) # chnl:20 => 10.9375MHz at BW=140MHz
