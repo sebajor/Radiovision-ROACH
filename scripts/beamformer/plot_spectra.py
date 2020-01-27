@@ -47,8 +47,8 @@ def main():
 
     # writing unitary constants into the calibration phase bank
     print("Setting and phasors in register bank...")
-    for i in range(16):
-        write_phasor_reg(roach, 1+0j, [i], ['cal_phase_re', 'cal_phase_im'], 
+    for addr in range(16):
+        write_phasor_reg(roach, 1+0j, [addr], ['cal_phase_re', 'cal_phase_im'], 
             ['cal_phase_addr'], 'cal_phase_we', 32, 17)
     print("done")
 

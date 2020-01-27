@@ -90,18 +90,20 @@ class Beamformer():
 
         # initial setting of registers
         print("Setting and resetting registers...")
-        roach.write_int(self.cal_acclen_reg, cal_acclen)
-        roach.write_int(self.cal_cntrst_reg, 1)
-        roach.write_int(self.cal_cntrst_reg, 0)
-        roach.write_int(self.bf_acclen_reg, bf_acclen)
-        roach.write_int(self.bf_cntrst_reg, 1)
-        roach.write_int(self.bf_cntrst_reg, 0)
+        self.roach.write_int(self.cal_acclen_reg, cal_acclen)
+        self.roach.write_int(self.cal_cntrst_reg, 1)
+        self.roach.write_int(self.cal_cntrst_reg, 0)
+        self.roach.write_int(self.bf_acclen_reg, bf_acclen)
+        self.roach.write_int(self.bf_cntrst_reg, 1)
+        self.roach.write_int(self.bf_cntrst_reg, 0)
         print("done")
         
         # writing unitary constants into the calibration phase bank
+        print("Setting ideal constants for bf calibration...")
         for addr in range(self.ninputs):
             write_phasor_reg(self.roach, 1+0j, [addr], self.cal_phase_regs, 
-                self.cal_addr_regs, self.cal_we_reg, 32, 27)
+                self.cal_addr_regs, self.cal_we_reg, 32, 17)
+        print("done")
     
     def calibrate_inputs(self, chnl):
         """
@@ -121,7 +123,7 @@ class Beamformer():
 
         # compute ratios
         print("Computed imbalances:")
-        cal_ratios = compute_ratios(sepcdata, xabdata, chnl)
+        cal_ratios = compute_ratios(specdata, xabdata, chnl)
 
         # plot calibration data
         plot_calibration_phasors(fig, ax, cal_ratios, [])
@@ -134,10 +136,13 @@ class Beamformer():
 
         # compute new ratios
         print("Calibrated imbalances:")
-        cal_ratios_new = compute_ratios(sepcdata, xabdata, chnl)
+        cal_ratios_new = compute_ratios(specdata, xabdata, chnl)
 
         # plot calibrated data
         plot_calibration_phasors(fig, ax, cal_ratios, cal_ratios_new)
+
+        print("Close plots to finish.")
+        plt.show()
 
 #################################
 ### calibrate input functions ###
@@ -147,7 +152,7 @@ def create_phasor_figure():
     Creates figure to plot the phasors on a unit circle. Used to check the
     calibration of the beamformer.
     """
-    fig, ax = plt.subplots(1,1,1)
+    fig, ax = plt.subplots(1,1)
     fig.show()
     fig.canvas.draw()
     
@@ -167,9 +172,11 @@ def create_phasor_figure():
     # make legend
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color'][:2]
     rects = [plt.Rectangle((0,0),1,1,color=color,ec="k") for color in colors]
-    plt.legend(rects, legends)
+    ax.legend(rects, ['uncalibrated', 'calibrated'])
 
-def plot_calibration_data(ax, uncal_phasors, cal_phasors):
+    return fig, ax
+
+def plot_calibration_phasors(fig, ax, uncal_phasors, cal_phasors):
     """
     Plot a list of uncalibrated and calibrated phasors (complex numbers)
     a arrows in a unit circle.
@@ -185,6 +192,26 @@ def plot_calibration_data(ax, uncal_phasors, cal_phasors):
             ax.add_artist(text)
     
     fig.canvas.draw()
+
+def get_xabdata(roach, xabbrams, awidth, dwidth, dtype):
+    """
+    Get correlated (xab) data from mbf model. Notice that the real and 
+    imaginary part of the cross spectrum is interleaved, so it must be
+    separated to create the compex data.
+    :param roach: FpgaClient object to get the data.
+    :param xabbrams: list of brams where to get the data.
+    :param awidth: brams address width.
+    :param dwidth: brams data width.
+    :param dtype: bram data type.
+    """
+    xabdata_list = []
+    for bram in xabbrams:
+        xabdata_reim = cd.read_deinterleave_data(roach, bram, 2, awidth, 
+            dwidth, dtype)
+        xabdata = xabdata_reim[0] + 1j*xabdata_reim[1]
+        xabdata_list.append(xabdata)
+
+    return xabdata_list
 
 def compute_ratios(specdata, xabdata, chnl):
     """
@@ -209,7 +236,7 @@ def compute_ratios(specdata, xabdata, chnl):
         print("Port " + str(i).zfill(2) + \
             ": mag: " + "%0.4f" % np.abs(cal_ratio) + \
             ", ang: " + "%0.4f" % np.angle(cal_ratio, deg=True) + "[deg]")
-    print ""
+    print("")
 
     return np.array(cal_ratios)
 
