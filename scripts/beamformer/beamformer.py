@@ -185,17 +185,57 @@ class Beamformer():
                     self.steer_beam(addrs, az, el, chnl)
         print("done")
 
-    def get_bf_data():
+    def get_bf_data(self):
         """
         Get the data of all of the 64 beams of the beamformer.
         :return: spectral data for each beam of the beamformer.
         """
+        bf_data_list = []
+        # get data from bram
+        for bf_bram in self.bf_brams:
+            bf_data = cd.read_data(self.roach, self.bf_awidth, self.bf_dwidth, 
+                self.bf_dtype)
+            
+            # split data into each individual (4) beamformers
+            bf_data = np.split(bf_data, 4)
 
-    def plot_colormap(self, chnl):
+            # add data to list
+            bf_data_list += bf_data
+
+        return bf_data_list
+
+    def plot_colormap(self, chnl, extent, acclen):
         """
         Plot a colormap of the beams power on a given channel.
         :param chnl: channel to plot.
+        :param extent: limits for the colormap ploting as defined by the imshow
+            function of matplotlib.
+        :param acclen: accumulation length for spectral data scaling.
         """
+        # create figure
+        fig, ax, img, cbar = create_colormap_fig(extent)
+
+        # animation definition
+        def animate(_):
+            # get spectral data from beamformers
+            bf_data = self.get_bf_data()
+
+            # extract the data from the specified channel only
+            bf_data = np.array(bf_data)[:, chnl]
+
+            # convert into dBFS
+            bf_data = cd.scale_and_dBFS_specdata(bf_data, acclen, self.dBFS)
+
+            # reshape the data into a matrix
+            bf_data = np.reshape(bf_data, 8, 8)
+
+            # update the plot grid and colormap
+            img.set_data(bf_data)
+            img.set_clim(vmin=np.min(bf_data), vmax=np.max(bf_data))
+            cbar.update_normal(img)
+
+        ani = FuncAnimation(fig, animate, blit=True)
+        plt.show()
 
 #################################
 ### calibrate input functions ###
@@ -335,16 +375,38 @@ def angs2phasors(elpos_w, freq, theta, phi):
 
     return list(np.conj(v).flatten())
 
+def create_colormap_fig(extent):
+    """
+    Creates figure and image to plot a colormap.
+    """
+    fig  = plt.figure()
+    ax   = fig.gca()
+    img  = ax.imshow([[0,0],[0,0]], origin='lower', aspect='equal', 
+        interpolation='spline36', extent=extent)
+    cbar = fig.colorbar(img)
+
+    ax.set_xlabel('Azimuth ($\phi$) [$^\circ$]')
+    ax.set_ylabel('Elevation ($\\theta$) [$^\circ$]')
+    cbar.colorbar.set_label("Power [dB]")
+
+    return fig, ax, img, cbar
 
 if __name__ == '__main__':
     chnl = 20 # chnl:20 => 10.9375MHz at BW=140MHz
+    cal_acclen = 2**16
+    bf_acclen  = 2**16
     bf = Beamformer()
-    bf.initialize(2**16, 2**16)
+    bf.initialize(cal_acclen, bf_acclen)
     #bf.calibrate_inputs(chnl)
 
     # beams position for testing the colormap
-    az = range(-56, 56+1, 16)
-    el = range(-56, 56+1, 16)
-    bf.steer_beams(az, el, chnl)
+    az_start = -56; el_start = -56
+    az_stop  =  56; el_stop  =  56
+    az_step  =  16; el_step  =  16
+    az_range = range(az_start, az_stop+1, az_step)
+    el_range = range(el_start, el_stop+1, el_step)
+    bf.steer_beams(az_range, el_range, chnl)
     
-    bf.plot_colormap(chnl)
+    extent = [az_start-az_step/2.0, az_stop+az_step/2.0,
+              el_start-el_step/2.0, el_stop+el_step/2.0]
+    bf.plot_colormap(chnl, extent, bf_acclen)

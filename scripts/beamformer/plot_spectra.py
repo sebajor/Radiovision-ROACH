@@ -124,7 +124,7 @@ def write_phasor_reg(roach, phasor, addrs, phasor_regs, addr_regs, we_reg, nbits
             This register is reseted to 0 before anything else in order to 
             avoid tampering with the rest of the bank.
 
-    :param roach: FpgaClinet object for communication.
+    :param roach: FpgaClient object for communication.
     :param phasor: complex constant to write in the register bank.
     :param addrs: list of addresses to set in the address registers to 
         properly select the register in the register bank. The number of 
