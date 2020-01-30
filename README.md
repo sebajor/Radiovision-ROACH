@@ -19,7 +19,7 @@ This is the ruby package written by David MacMahon to initialize the ADC16x250-8
 
 ## Roadmap
 - [x] Implement basic scripts (snapshots, power, spectra)
-- [ ] Implement realtime colormap
+- [x] Implement realtime colormap
 - [ ] Implement camera feed
 - [ ] Implement dummy beamformer
 - [ ] Integrate colormap and camera into radiovision

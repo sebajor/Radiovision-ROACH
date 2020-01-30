@@ -1,4 +1,5 @@
 # imports
+import itertools
 import calandigital as cd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -48,8 +49,8 @@ class Beamformer():
         self.bf_acclen_reg = "bf_acc_len"
         self.bf_cntrst_reg = "bf_cnt_rst"
         self.bf_phase_regs = ['bf_phase_re', 'bf_phase_im']
-        self.bf_addr_regs  = ['bf_phase_addr_x', 'bf_phase_addr_y', 
-                              'bf_phase_addr_t', 'bf_phase_addr_sub']
+        self.bf_addr_regs  = ['bf_addr_x', 'bf_addr_y', 
+                              'bf_addr_t', 'bf_addr_sub']
         self.bf_we_reg     = 'bf_phase_we'
         self.bf_nbits      = 18
         self.bf_binpt      = 17
@@ -70,10 +71,10 @@ class Beamformer():
         # element positions: a 2D array with the XYZ position of each element 
         # in the array. The position is given in wavelength units. The 
         # coordinate system origin of the center of the array.
-        self.elpos = [[(0.75, 0,  0.75), (0.25, 0,  0.75), (-0.25, 0,  0.75), (-0,75, 0,  0.75)],
-                      [(0.75, 0,  0.25), (0.25, 0,  0.25), (-0.25, 0,  0.25), (-0,75, 0,  0.25)],
-                      [(0.75, 0, -0.25), (0.25, 0, -0.25), (-0.25, 0, -0.25), (-0,75, 0, -0.25)],
-                      [(0.75, 0, -0.75), (0.25, 0, -0.75), (-0.25, 0, -0.75), (-0,75, 0, -0.75)]]
+        self.elpos = [[(0.75, 0,  0.75), (0.25, 0,  0.75), (-0.25, 0,  0.75), (-0.75, 0,  0.75)],
+                      [(0.75, 0,  0.25), (0.25, 0,  0.25), (-0.25, 0,  0.25), (-0.75, 0,  0.25)],
+                      [(0.75, 0, -0.25), (0.25, 0, -0.25), (-0.25, 0, -0.25), (-0.75, 0, -0.25)],
+                      [(0.75, 0, -0.75), (0.25, 0, -0.75), (-0.25, 0, -0.75), (-0.75, 0, -0.75)]]
 
         # derivative parameters
         self.nchannels = 2**self.cal_awidth
@@ -101,7 +102,7 @@ class Beamformer():
         print("done")
         
         # writing unitary constants into the calibration phase bank
-        print("Setting ideal constants for bf calibration...")
+        print("Setting ideal constants for bf initialization...")
         for addr in range(self.ninputs):
             write_phasor_reg(self.roach, 1+0j, [addr], self.cal_phase_regs, 
                 self.cal_addr_regs, self.cal_we_reg, 32, 17)
@@ -164,7 +165,7 @@ class Beamformer():
         
         for phasor, addrs in zip(phasor_list, addrs_list):
             write_phasor_reg(self.roach, phasor, addrs, self.bf_phase_regs, 
-                self.bf_addr_regs, self.we_we_reg, 18, 17)
+                self.bf_addr_regs, self.bf_we_reg, 18, 17)
 
     def steer_beams(self, az_list, el_list, chnl):
         """
@@ -180,9 +181,12 @@ class Beamformer():
         for i in range(4):
             for j in range(4):
                 for t in range(4):
-                    addrs = [[i,j,t,input] for port in range(self.ninputs)]
-                    el, az = angles_comb.next()
+                    addrs = [[i,j,t,input] for input in range(self.ninputs)]
+                    el, az = angle_pairs.next()
+                    print("Steering beam az:" + str(az).rjust(3) + 
+                                      ", el:" + str(el).rjust(3))
                     self.steer_beam(addrs, az, el, chnl)
+
         print("done")
 
     def get_bf_data(self):
@@ -193,8 +197,8 @@ class Beamformer():
         bf_data_list = []
         # get data from bram
         for bf_bram in self.bf_brams:
-            bf_data = cd.read_data(self.roach, self.bf_awidth, self.bf_dwidth, 
-                self.bf_dtype)
+            bf_data = cd.read_data(self.roach, bf_bram, self.bf_awidth, 
+                self.bf_dwidth, self.bf_dtype)
             
             # split data into each individual (4) beamformers
             bf_data = np.split(bf_data, 4)
@@ -227,12 +231,14 @@ class Beamformer():
             bf_data = cd.scale_and_dBFS_specdata(bf_data, acclen, self.dBFS)
 
             # reshape the data into a matrix
-            bf_data = np.reshape(bf_data, 8, 8)
+            bf_data = np.reshape(bf_data, (8,8))
 
             # update the plot grid and colormap
             img.set_data(bf_data)
             img.set_clim(vmin=np.min(bf_data), vmax=np.max(bf_data))
             cbar.update_normal(img)
+
+            return []
 
         ani = FuncAnimation(fig, animate, blit=True)
         plt.show()
@@ -387,7 +393,7 @@ def create_colormap_fig(extent):
 
     ax.set_xlabel('Azimuth ($\phi$) [$^\circ$]')
     ax.set_ylabel('Elevation ($\\theta$) [$^\circ$]')
-    cbar.colorbar.set_label("Power [dB]")
+    cbar.set_label("Power [dB]")
 
     return fig, ax, img, cbar
 
